@@ -278,7 +278,7 @@ namespace PlayEveryWare.EpicOnlineServices.Utility
 
             // If the progress is defined, then do extra work to track the
             // progress.
-            if (null != progress)
+            if (progress != null)
             {
                 // Create struct to track and report on progress
                 CopyFileProgressInfo progressInfo = new()
@@ -287,25 +287,25 @@ namespace PlayEveryWare.EpicOnlineServices.Utility
                     TotalFilesToCopy = operations.Count()
                 };
 
-                // Create timer to periodically report on the progress based on
-                // the interval (at some future point it may be appropriate to
-                // make that interval a parameter)
-                await using Timer progressTimer = new(state =>
+                // ВАЖНО: используем обычный using для таймера (без await)
+                using (Timer progressTimer = new Timer(state =>
                 {
                     progress?.Report(progressInfo);
-                }, null, 0, updateIntervalMS);
+                }, null, 0, updateIntervalMS))
+                {
+                    // Get a list out of the operations, and shuffle it
+                    IList<CopyFileOperation> operationsList = operations.ToList();
+                    operationsList.Shuffle();
 
-                // Get a list out of the operations, and shuffle it
-                IList<CopyFileOperation> operationsList = operations.ToList();
-                operationsList.Shuffle();
-
-                // Copy the files asynchronously with the provided
-                // cancellation token, and progress stuff.
-                await CopyFilesAsyncInternal(
-                    operationsList,
-                    cancellationToken,
-                    progress,
-                    progressInfo);
+                    // Copy the files asynchronously with the provided
+                    // cancellation token, and progress stuff.
+                    await CopyFilesAsyncInternal(
+                        operationsList,
+                        cancellationToken,
+                        progress,
+                        progressInfo);
+                }
+                // Timer будет корректно освобожден после выхода из using-блока
             }
             else
             {
