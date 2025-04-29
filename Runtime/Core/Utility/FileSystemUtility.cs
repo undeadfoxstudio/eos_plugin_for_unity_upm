@@ -489,21 +489,24 @@ namespace PlayEveryWare.EpicOnlineServices.Utility
         {
             try
             {
-#if NET_STANDARD_2_0
-                await using FileStream fileStream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-                using StreamReader reader = new(fileStream);
-                string content = await reader.ReadToEndAsync();
-                return content;
-#else
-                return await Task.Run(() => ReadAllText(path));
-#endif
+                using (FileStream fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (StreamReader reader = new StreamReader(fileStream))
+                {
+                    string content = await reader.ReadToEndAsync();
+                    return content;
+                }
             }
             catch (Exception e)
             {
+            #if !EXTERNAL_TO_UNITY
                 Debug.LogException(e);
+            #else
+                Console.WriteLine(e);
+            #endif
                 throw;
             }
         }
+
 #endif
 
         /// <summary>
@@ -637,23 +640,19 @@ namespace PlayEveryWare.EpicOnlineServices.Utility
         /// <returns>Task</returns>
         public static async Task WriteFileAsync(string filePath, string content, bool createDirectory = true)
         {
-            FileInfo file = new(filePath);
+            FileInfo file = new FileInfo(filePath);
 
-            // If the directory should be created, and the DirectoryInfo is not
-            // null, then create the directory.
-            if (createDirectory && null != file.Directory)
+            if (createDirectory && file.Directory != null)
             {
                 CreateDirectory(file.Directory);
             }
 
-#if !EXTERNAL_TO_UNITY
-            await using StreamWriter writer = new(filePath);
-#else
-            using StreamWriter writer = new(filePath);
-#endif
-
-            await writer.WriteAsync(content);
+            using (StreamWriter writer = new StreamWriter(filePath, false))
+            {
+                await writer.WriteAsync(content);
+            }
         }
+
 
         /// <summary>
         /// Helper function to create a directory. If the directory already
